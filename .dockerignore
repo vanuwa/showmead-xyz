@@ -1,0 +1,9 @@
+.idea
+.vscode
+.DS_Store
+tmp
+.http
+.editorconfig
+.gitignore
+.git
+README.md

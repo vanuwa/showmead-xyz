@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>${widget_name}</title>
+
+  <link rel="stylesheet" href="./styles/style.css">
+
+  <!-- Strossle SDK -->
+  <script>
+    window.strossle=window.strossle||function(){(strossle.q=strossle.q||[]).push(arguments)};
+    strossle('${widget_id}', '.strossle-widget');
+  </script>
+  <script async src="https://assets.strossle.com/strossle-widget-sdk/1/strossle-widget-sdk.js"></script>
+  <!-- End Strossle SDK -->
+
+</head>
+<body class="strossle">
+  <main>
+    <a href="/">Go Home</a>
+    <h1 class="body-main-title">Welcome to <span class="accent">${widget_name}</span> test pages</h1>
+    <h3><a href="https://factory.strossle.com/widgets/${widget_id}" target="_blank" rel="noopener noreferrer">Got to Factory - ${widget_id}</a></h3>
+    <div class="test-case">
+      <div class="strossle-widget"></div>
+    </div>
+  </main>
+  <footer>
+    © 2024, Show Me Ad XYZ
+  </footer>
+</body>
+</html>
