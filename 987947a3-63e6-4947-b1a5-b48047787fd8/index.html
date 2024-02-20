@@ -3,10 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+  />
 
   <title>SMA XYZ Uno</title>
 
-  <link rel="stylesheet" href="./styles/style.css">
+<!--  <link rel="stylesheet" href="./styles/style.css">-->
 
   <!-- Strossle SDK -->
   <script>
@@ -17,17 +22,36 @@
   <!-- End Strossle SDK -->
 
 </head>
-<body class="strossle">
-  <main>
-    <a href="https://strossle.showmead.xyz">Home</a>
-    <h1 class="body-main-title">Welcome to <span class="accent">Show Me Ad UNO</span> test pages</h1>
-    <h3><a href="https://factory.strossle.com/widgets/987947a3-63e6-4947-b1a5-b48047787fd8/details" target="_blank" rel="noopener noreferrer">Factory - 987947a3-63e6-4947-b1a5-b48047787fd8</a></h3>
-    <div class="test-case">
-      <div class="strossle-widget"></div>
-    </div>
+<body>
+  <header class="container">
+    <hgroup>
+      <h1>Welcome to <kbd>Show Me Ad UNO</kbd> test page</h1>
+      <nav>
+        <ul>
+          <li>
+            <a href="https://strossle.showmead.xyz">Home</a>
+          </li>
+          <li>
+            <a href="https://factory.strossle.com/widgets/987947a3-63e6-4947-b1a5-b48047787fd8/details" target="_blank" rel="noopener noreferrer">Factory - 987947a3-63e6-4947-b1a5-b48047787fd8</a>
+          </li>
+        </ul>
+      </nav>
+    </hgroup>
+  </header>
+  <main class="container">
+<!--    <a href="https://strossle.showmead.xyz">Home</a>-->
+    <article id="test-case">
+      <h3>Test Case</h3>
+      <p>
+        <div class="strossle-widget"></div>
+      </p>
+      <footer>
+        987947a3-63e6-4947-b1a5-b48047787fd8
+      </footer>
+    </article>
   </main>
-  <footer>
-    © 2024, Show Me Ad XYZ
+  <footer class="container">
+    <small>© 2024, Show Me Ad XYZ</small>
   </footer>
 </body>
 </html>
