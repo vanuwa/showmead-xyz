@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Widget test page</title>
+
+    <link rel="stylesheet" href="styles/style.css">
+    <script>
+      window.onload = () => {
+        const default_widget_id = 'widget-594b8f24eaea4';
+        const default_widget_version = '1';
+        const params = new URLSearchParams(window.location.search);
+        const div = document.createElement('div');
+        const script = document.createElement('script')
+        const sdk = document.createElement('script')
+
+        this.widget_id = params.get('w') || params.get('widget') || params.get('widget_id') || default_widget_id;
+        this.widget_version = params.get('v') || params.get('ver') || params.get('version') || params.get('widget_version') || default_widget_version
+        if (parseInt(this.widget_version, 10).toString() === this.widget_version) {
+          this.widget_version = `v${this.widget_version}`
+        }
+        switch (this.widget_version) {
+          case 'v2':
+            // sdk.src = 'https://assets.strossle.com/strossle-widget-sdk/1/strossle-widget-sdk.js';
+            sdk.src = `http://127.0.0.1:4004/dist/strossle-widget-sdk.js?cachebuster=${Math.random()}`;
+            sdk.async = true;
+            div.className = 'strossle-widget';
+            script.innerHTML =
+              "window.strossle=window.strossle||function(){(strossle.q=strossle.q||[]).push(arguments)};" +
+              `strossle('${this.widget_id}', '.strossle-widget');`
+            break;
+          case 'v1':
+            sdk.src = '//widgets.sprinklecontent.com/v2/sprinkle.js';
+            sdk.async = true;
+            div.setAttribute('data-spklw-widget', this.widget_id)
+            break;
+        }
+
+        document.head.appendChild(sdk)
+        document.body.appendChild(div)
+        document.head.appendChild(script)
+        document.getElementById('header').innerText = this.widget_id
+      };
+      document.onHeaderClick = () => {
+        document.getElementById('header').style.display = 'none';
+        document.getElementById('input').style.display = 'flex';
+      }
+      document.onSubmitClick = () => {
+        location.href = location.href.replace(location.search, `?w=${this.document.getElementById('widget_id').value}&v=${this.document.getElementById('widget_version').value}`);
+      }
+    </script>
+
+  </head>
+  <body class="strossle">
+    <div class="mimic-main" id="header" style="cursor: pointer" onclick="document.onHeaderClick()">...</div>
+    <div id="input" style="display: none; height: 42px; flex-direction: column;">
+      <div style="align-self: center">
+        <label for="widget_id">Widget ID</label>
+        <input id="widget_id" type="text" name="widget_id">
+        <label for="widget_version">Widget Version</label>
+        <input id="widget_version" type="text" name="widget_version">
+        <input type="button" value="Submit" onclick="document.onSubmitClick()">
+      </div>
+    </div>
+  </body>
+</html>
