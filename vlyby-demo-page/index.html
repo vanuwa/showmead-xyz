@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Widget test page</title>
+  <script>
+    window.onload = () => {
+      const default_widget_id = '27f0f678-0117-4072-881d-894023c37c31';
+      const default_widget_version = '2';
+      const params = new URLSearchParams(window.location.search);
+      const div = document.createElement('div');
+      const script = document.createElement('script')
+      const sdk = document.createElement('script')
+
+      this.widget_id = params.get('w') || params.get('widget') || params.get('widget_id') || default_widget_id;
+      this.widget_version = params.get('v') || params.get('ver') || params.get('version') || params.get('widget_version') || default_widget_version
+      if (parseInt(this.widget_version, 10).toString() === this.widget_version) {
+        this.widget_version = `v${this.widget_version}`
+      }
+      switch (this.widget_version) {
+        case 'v2':
+          //sdk.src = `https://assets.strossle.com/strossle-widget-sdk.js?cachebuster=${Math.random()}`;
+          sdk.src = `http://127.0.0.1:4004/dist/strossle-widget-sdk.js?cachebuster=${Math.random()}`;
+          sdk.async = true;
+          div.className = 'strossle-widget';
+          script.innerHTML =
+            "window.strossle=window.strossle||function(){(strossle.q=strossle.q||[]).push(arguments)};" +
+            `strossle('${this.widget_id}', '.strossle-widget');`
+          break;
+        case 'v1':
+          sdk.src = '//widgets.sprinklecontent.com/v2/sprinkle.js';
+          sdk.async = true;
+          div.setAttribute('data-spklw-widget', this.widget_id)
+          break;
+      }
+
+      document.head.appendChild(sdk)
+      document.head.appendChild(script)
+      const el = document.getElementById('wdgt')
+      el.append(div)
+      el.className = ''
+    };
+  </script>
+  <style>
+    .blur-on-hover:hover {
+      filter: blur(1px);
+      -webkit-filter: blur(1px);
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body style="margin: 0">
+  <div style="width: 100%; height: 100%" class="loading-state">
+    <div style="display: flex; flex-direction: column; align-items: center;">
+      <img src="./1.jpg" class="blur-on-hover" oncontextmenu="return false;" />
+        <div id="wdgt" style="width: 1280px;"></div>
+      <img src="./2.jpg" class="blur-on-hover" oncontextmenu="return false;" />
+    </div>
+  </div>
+
+</body>
+</html>
