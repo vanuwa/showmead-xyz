@@ -20,8 +20,7 @@
       }
       switch (this.widget_version) {
         case 'v2':
-          //sdk.src = `https://assets.strossle.com/strossle-widget-sdk.js?cachebuster=${Math.random()}`;
-          sdk.src = `http://127.0.0.1:4004/dist/strossle-widget-sdk.js?cachebuster=${Math.random()}`;
+          sdk.src = `https://assets.strossle.com/strossle-widget-sdk.js?cachebuster=${Math.random()}`;
           sdk.async = true;
           div.className = 'strossle-widget';
           script.innerHTML =
