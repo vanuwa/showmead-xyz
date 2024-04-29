@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Widget test page</title>
+  <title>VlyBy Demo Page</title>
   <script>
     window.onload = () => {
       const default_widget_id = '27f0f678-0117-4072-881d-894023c37c31';
@@ -20,7 +20,7 @@
       }
       switch (this.widget_version) {
         case 'v2':
-          sdk.src = `https://assets.strossle.com/strossle-widget-sdk.js?cachebuster=${Math.random()}`;
+          sdk.src = `https://assets.strossle.com/strossle-widget-sdk.js`;
           sdk.async = true;
           div.className = 'strossle-widget';
           script.innerHTML =
