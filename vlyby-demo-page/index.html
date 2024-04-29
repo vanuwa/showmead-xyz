@@ -20,7 +20,7 @@
       }
       switch (this.widget_version) {
         case 'v2':
-          sdk.src = `https://assets.strossle.com/strossle-widget-sdk.js`;
+          sdk.src = `https://assets.strossle.com/strossle-widget-sdk/1/strossle-widget-sdk.js`;
           sdk.async = true;
           div.className = 'strossle-widget';
           script.innerHTML =
@@ -38,7 +38,6 @@
       document.head.appendChild(script)
       const el = document.getElementById('wdgt')
       el.append(div)
-      el.className = ''
     };
   </script>
   <script>
