@@ -1,3 +1,7 @@
 #blog-post figure img {
   background-color: #333;
 }
+
+main .pure-g {
+  background-color: #efefef;
+}
