@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/grids-responsive-min.css">
+    <link rel="shortcut icon" href="../assets/favicon_strossle.png">
+
+    <title>Widget test page</title>
+
+    <script>
+      window.onload = () => {
+        const default_widget_id = 'widget-594b8f24eaea4';
+        const default_widget_version = '1';
+        const params = new URLSearchParams(window.location.search);
+        const div = document.createElement('div');
+        const script = document.createElement('script')
+        const sdk = document.createElement('script')
+
+        this.widget_id = params.get('w') || params.get('widget') || params.get('widget_id') || default_widget_id;
+        this.widget_version = params.get('v') || params.get('ver') || params.get('version') || params.get('widget_version') || default_widget_version
+        this.hide_input = ['t','true'].includes(params.get('h') || params.get('hide') || params.get('hide_input') || 'false');
+        document.getElementById('input').hidden = this.hide_input
+
+        switch (this.widget_version) {
+          case '2':
+            sdk.src = 'https://assets.strossle.com/strossle-widget-sdk/1/strossle-widget-sdk.js';
+            sdk.async = true;
+            div.className = 'strossle-widget';
+            script.innerHTML =
+              "window.strossle=window.strossle||function(){(strossle.q=strossle.q||[]).push(arguments)};" +
+              `strossle('${this.widget_id}', '.strossle-widget');`
+            break;
+          case '1':
+            sdk.src = 'https://widgets.sprinklecontent.com/v2/sprinkle.js';
+            sdk.async = true;
+            div.setAttribute('data-spklw-widget', this.widget_id)
+            break;
+        }
+
+        document.head.appendChild(sdk)
+        document.getElementById("widget").appendChild(div)
+        document.head.appendChild(script)
+        document.getElementById('widget-id-str').innerText = this.widget_id
+        document.getElementById('factory-link').href = `https://factory.strossle.com/widgets/${this.widget_id}/details`
+        document.getElementById('footer').innerText = this.widget_id
+        document.getElementById('widget-id').value = this.widget_id
+        document.getElementById('widget-version').value = this.widget_version
+      };
+      document.onSubmitClick = () => {
+        location.href = location.href.replace(location.search, `?w=${document.getElementById('widget-id').value}&v=${document.getElementById('widget-version').value}`);
+      }
+      document.onShareClick = () => {
+        navigator.clipboard.writeText(
+          location.href.replace(location.search, `?w=${document.getElementById('widget-id').value}&v=${document.getElementById('widget-version').value}&h=t`)
+        );
+      }
+    </script>
+    <style>
+      .custom-sizes {
+        --pico-line-height: 0.8rem;
+        --pico-form-element-spacing-vertical: 0.2rem;
+        --pico-form-element-spacing-horizontal: 0.4rem;
+      }
+    </style>
+  </head>
+  <body>
+  <header class="container">
+    <hgroup id="header">
+      <h1>Welcome to <kbd id="widget-id-str">Widget</kbd> test page</h1>
+      <nav>
+        <ul>
+          <li>
+            <a href="https://strossle.showmead.xyz">Home</a>
+          </li>
+          <li>
+            <a id="factory-link" href="#" target="_blank" rel="noopener noreferrer">Factory</a>
+          </li>
+        </ul>
+      </nav>
+    </hgroup>
+  </header>
+  <main class="container custom-sizes">
+    <div id="input" style="max-width: 450px">
+      <div>
+        <label for="widget-id">Widget ID</label>
+        <input id="widget-id" type="text" name="widget-id">
+      </div>
+      <div>
+        <label for="widget-version">Widget Version</label>
+        <input id="widget-version" type="text" name="widget-version">
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <input style="width: auto" type="button" value="Sharable Link" onclick="document.onShareClick()">
+        <input style="width: auto" type="button" value="Submit" onclick="document.onSubmitClick()">
+      </div>
+    </div>
+    <article>
+      <h3>Test Case</h3>
+      <div id="widget"></div>
+      <footer id="footer"></footer>
+    </article>
+  </main>
+  <footer class="container">
+    <small>© 2024, Show Me Ad XYZ</small>
+  </footer>
+  </body>
+</html>
