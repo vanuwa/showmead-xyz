@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+  />
+  <link rel="shortcut icon" href="https://www.strossle.com/hubfs/favicon.png">
+  <title>SMA XYZ Due</title>
+
+<!--  <link rel="stylesheet" href="./styles/style.css">-->
+
+  <!-- Strossle SDK -->
+  <script>
+    <!--    -->
+    window.strossle=window.strossle||function(){(strossle.q=strossle.q||[]).push(arguments)};
+    strossle('572632b3-7154-4189-9403-b3ce981ff2b6', '.strossle-widget', {
+      plugins: [{
+        type: 'script:strossle.com/plugins/readpeak',
+        link: 'https://assets.strossle.com/strossle-widget-sdk/plugins/readpeak.js'
+      }]
+    });
+  </script>
+  <script async src="https://assets.strossle.com/strossle-widget-sdk/1/strossle-widget-sdk.js"></script>
+  <!-- End Strossle SDK -->
+
+</head>
+<body>
+  <header class="container">
+    <hgroup>
+      <h1>Welcome to <kbd>Project Native</kbd> test page</h1>
+      <nav>
+        <ul>
+          <li>
+            <a href="https://strossle.showmead.xyz">Home</a>
+          </li>
+          <li>
+            <a href="https://factory.strossle.com/widgets/572632b3-7154-4189-9403-b3ce981ff2b6/details" target="_blank" rel="noopener noreferrer">Factory</a>
+          </li>
+        </ul>
+      </nav>
+    </hgroup>
+  </header>
+  <main class="container">
+    <article id="test-case">
+      <h3>Test Case</h3>
+      <p>
+        <div class="strossle-widget"></div>
+      </p>
+      <footer>
+        572632b3-7154-4189-9403-b3ce981ff2b6
+      </footer>
+    </article>
+  </main>
+  <footer class="container">
+    <small>© 2024, Show Me Ad XYZ</small>
+  </footer>
+  <script>
+    (() => {
+      console.log('Strossle to MGID converter started');
+
+      const mapping = {
+        '572632b3-7154-4189-9403-b3ce981ff2b6': {sId: 103889, wId: 1580250, token: 'e0ed0bbe78d75b77ee0283db96d59442'},
+        'b3c3c5d7-0f56-49ab-bad6-24f137768f3b': {sId: 103889, wId: 374507, token: 'e9af59006d19259cfd7a9d30126700f3'},
+        'a5ff637f-95d3-4bca-9ab0-dcaac6314436': {sId: 103889, wId: 372414, token: '2ad01f448a3a8fdd51ed845bd91c7698'},
+      };
+
+      let queue = [];
+      let simpleJsInserted = false;
+
+      if (window.strossle !== 'undefined' && window.strossle.q !== 'undefined') {
+        queue = window.strossle.q;
+      }
+
+      function waitForContainer(selector, callback) {
+        const hostContainer = document.querySelector(selector);
+        if (!hostContainer) {
+          setTimeout(() => { waitForContainer(selector, callback); }, 100);
+        } else {
+          callback(hostContainer);
+        }
+      }
+
+      function insertMgidScript(hostContainer, siteId) {
+        if (!simpleJsInserted) {
+          const widgetScript = document.createElement('script');
+          widgetScript.src = 'https://jsc.mgid.com/site/' + siteId + '.js';
+          hostContainer.appendChild(widgetScript);
+          simpleJsInserted = true;
+        }
+      }
+
+      function pingMgq() {
+        (function(w,q){w[q]=w[q]||[];w[q].push(["_mgc.load"])})(window,"_mgq");
+      }
+
+      window.strossle = (widgetId, selector) => {
+        if (!mapping[widgetId]) {
+          console.log('Strossle to MGID mapping not found for: ' + widgetId);
+        }
+
+        waitForContainer(selector, (hostContainer) => {
+          const widgetContainer = document.createElement('div');
+          widgetContainer.dataset.type = '_mgwidget';
+          widgetContainer.dataset.widgetId = mapping[widgetId].wId;
+
+          // temporary for test:
+          widgetContainer.dataset.preview = true;
+          widgetContainer.dataset.token = mapping[widgetId].token;
+          // ------------------
+
+          hostContainer.appendChild(widgetContainer);
+          insertMgidScript(hostContainer, mapping[widgetId].sId);
+          pingMgq();
+        });
+      }
+
+      if (queue.length > 0) {
+        queue.forEach((item) => {
+          window.strossle(item[0], item[1]);
+        })
+      }
+    })();
+  </script>
+</body>
+</html>
