@@ -1,21 +1,15 @@
-APP_NAME=strossle-test-pages
-APP_VERSION=1.0.0
+IMAGE  = showmead-xyz
+CONTAINER = showmead-xyz
+PORT   = 8080
 
-image:
-	docker build -t $(APP_NAME):$(APP_VERSION) .
-	@echo "DONE"
+up:
+	docker build -t $(IMAGE) .
+	docker run -d --name $(CONTAINER) -p $(PORT):80 $(IMAGE)
+	@echo "Running at http://localhost:$(PORT)"
 
-run: image
-	docker run --name $(APP_NAME) -d -p 80:80 $(APP_NAME):$(APP_VERSION)
-	docker ps -f "name=$(APP_NAME)"
-	@echo "DONE"
+down:
+	docker stop $(CONTAINER) || true
+	docker rm $(CONTAINER) || true
+	docker rmi $(IMAGE) || true
 
-stop:
-	docker stop $(APP_NAME)
-	@echo "DONE"
-
-.PHONY: clean
-clean: stop
-	docker rm $(APP_NAME)
-	docker rmi $(APP_NAME):$(APP_VERSION)
-	@echo "DONE"
+.PHONY: up down
