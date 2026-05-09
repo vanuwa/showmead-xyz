@@ -67,7 +67,7 @@ header {
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  background: url("assets/sik_mozku_icon.png") center / contain no-repeat;
+  background: url("/assets/brainjuice_icon.png") center / contain no-repeat;
   cursor: default;
 }
 

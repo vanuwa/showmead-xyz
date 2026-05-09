@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ShowMeAd XYZ</title>
+    <link rel="icon" type="image/png" href="/assets/favicon.png">
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -24,12 +25,62 @@
       p {
         color: #666;
       }
+      ul {
+        padding: 0;
+        list-style: none;
+      }
+      ul li {
+        margin: 10px 0;
+      }
+      ul li a {
+        color: #4a90e2;
+        text-decoration: none;
+        font-size: 1.1em;
+      }
+      ul li a:hover {
+        text-decoration: underline;
+      }
+      ul li span {
+        color: #999;
+        font-size: 0.95em;
+        margin-left: 8px;
+      }
+      .brand {
+        position: fixed;
+        top: 12px;
+        left: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #999;
+        background-color: #f4f4f9;
+      }
     </style>
   </head>
   <body>
+    <div class="brand">
+      <img src="/assets/brainjuice_icon.png" alt="Brain Juice" style="width:36px;height:36px;">
+      <span style="font-size:18px;font-weight:600;color:#555;">Brain Juice</span>
+    </div>
     <div class="container">
       <h1>Show Me Ad</h1>
-      <p>WELCOME!</p>
+      <p>A sandbox for AdTech testing and prototyping — tools and test pages for ad formats, integrations, and specs.</p>
+      <ul>
+        <li><a href="/vast">VAST Tag Tester</a><span>Parse and debug VAST tags, follow wrapper chains, preview ad playback</span></li>
+        <li><a href="/strossle">Strossle Test Pages</a><span>Publisher and placement test pages for widget integrations</span></li>
+      </ul>
     </div>
+    <footer>© 2026, Show Me Ad XYZ</footer>
   </body>
 </html>
