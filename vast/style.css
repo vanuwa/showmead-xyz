@@ -13,6 +13,7 @@
   --warn: #faad14;
   --error: #ff4d4f;
   --pending: #bfbfbf;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 *,
@@ -334,7 +335,7 @@ section {
   color: var(--text);
   padding: 7px 10px;
   font-size: 13px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   outline: none;
   min-width: 0;
   transition:
@@ -496,7 +497,7 @@ button:disabled {
 
 #raw-xml {
   padding: 10px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-mid);
   white-space: pre-wrap;
@@ -519,7 +520,7 @@ button:disabled {
   display: flex;
   gap: 10px;
   align-items: baseline;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.6;
   border-bottom: 1px solid transparent;
@@ -550,9 +551,7 @@ button:disabled {
 #event-log li[data-type="complete"] .log-event {
   color: var(--success);
 }
-#event-log li[data-type="impression"] .log-event {
-  color: var(--accent);
-}
+#event-log li[data-type="impression"] .log-event,
 #event-log li[data-type="start"] .log-event {
   color: var(--accent);
 }
@@ -566,7 +565,7 @@ button:disabled {
   color: var(--warn);
 }
 #event-log li[data-type="click"] .log-event {
-  color: #1677ff;
+  color: var(--accent);
 }
 #event-log li[data-type="skip"] .log-event {
   color: var(--warn);
@@ -586,7 +585,7 @@ button:disabled {
 }
 
 #diagram-tree {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.75;
   white-space: pre;
