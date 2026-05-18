@@ -13,6 +13,7 @@
   --warn: #faad14;
   --error: #ff4d4f;
   --pending: #bfbfbf;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 *,
@@ -241,6 +242,72 @@ section {
   background: #fafafa;
 }
 
+/* ── Ad playlist ── */
+#ad-list-section {
+  padding: 6px 12px 8px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  max-height: 170px;
+  overflow-y: auto;
+}
+#xml-details.collapsed ~ #ad-list-section {
+  flex: 1;
+  max-height: none;
+  overflow-y: auto;
+}
+
+.panel-sublabel {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.ad-list-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  margin-bottom: 3px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-panel);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+}
+.ad-list-item:hover  { background: var(--accent-bg); border-color: var(--accent); }
+.ad-list-item.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+
+.ad-seq { color: var(--text-dim); min-width: 22px; font-variant-numeric: tabular-nums; }
+
+.ad-type-badge {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+  background: var(--border);
+  color: var(--text-dim);
+}
+.ad-type-badge.inline  { background: #e6f4ff; color: #1677ff; }
+.ad-type-badge.wrapper { background: #fff7e6; color: #d46b08; }
+
+.ad-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ad-played-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pending);
+  flex-shrink: 0;
+}
+.ad-list-item.played .ad-played-dot { background: var(--success); }
+
 /* ── Input panel ── */
 #input-panel {
 }
@@ -268,7 +335,7 @@ section {
   color: var(--text);
   padding: 7px 10px;
   font-size: 13px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   outline: none;
   min-width: 0;
   transition:
@@ -321,6 +388,27 @@ button:disabled {
   color: var(--accent);
   border-color: var(--accent);
 }
+
+/* ── Input meta row (status + HTTP badge) ── */
+#input-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  flex-shrink: 0;
+}
+
+#http-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+#http-status-badge.ok    { background: #f6ffed; color: var(--success); border: 1px solid #b7eb8f; }
+#http-status-badge.error { background: #fff2f0; color: var(--error);   border: 1px solid #ffccc7; }
 
 #input-status {
   font-size: 12px;
@@ -384,6 +472,22 @@ button:disabled {
   flex-shrink: 0;
 }
 
+.xml-toggle-btn {
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  padding: 0 2px;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.xml-toggle-btn:hover { color: var(--text); background: var(--border); }
+
+#xml-details.collapsed #xml-container { display: none; }
+#xml-details.collapsed { flex: 0 0 auto; }
+
 #xml-container {
   flex: 1;
   min-height: 0;
@@ -393,7 +497,7 @@ button:disabled {
 
 #raw-xml {
   padding: 10px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-mid);
   white-space: pre-wrap;
@@ -416,7 +520,7 @@ button:disabled {
   display: flex;
   gap: 10px;
   align-items: baseline;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.6;
   border-bottom: 1px solid transparent;
@@ -447,9 +551,7 @@ button:disabled {
 #event-log li[data-type="complete"] .log-event {
   color: var(--success);
 }
-#event-log li[data-type="impression"] .log-event {
-  color: var(--accent);
-}
+#event-log li[data-type="impression"] .log-event,
 #event-log li[data-type="start"] .log-event {
   color: var(--accent);
 }
@@ -463,7 +565,7 @@ button:disabled {
   color: var(--warn);
 }
 #event-log li[data-type="click"] .log-event {
-  color: #1677ff;
+  color: var(--accent);
 }
 #event-log li[data-type="skip"] .log-event {
   color: var(--warn);
@@ -483,7 +585,7 @@ button:disabled {
 }
 
 #diagram-tree {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.75;
   white-space: pre;
