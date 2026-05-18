@@ -46,15 +46,23 @@
           <input type="text" id="vast-url" placeholder="https://example.com/vast.xml  or paste raw XML" autocomplete="off" spellcheck="false">
           <button id="load-btn">Load</button>
         </div>
-        <div id="input-status"></div>
-        <div id="xml-details">
+        <div id="input-meta-row">
+          <div id="input-status"></div>
+          <span id="http-status-badge" hidden></span>
+        </div>
+        <div id="xml-details" class="collapsed">
           <div id="xml-toolbar">
+            <button id="xml-toggle-btn" class="xml-toggle-btn" title="Toggle XML">▶</button>
             Fetched XML <span id="xml-hop-label"></span>
             <button id="copy-xml-btn" class="small-btn">Copy</button>
           </div>
           <div id="xml-container">
             <pre id="raw-xml"></pre>
           </div>
+        </div>
+        <div id="ad-list-section" hidden>
+          <div class="panel-sublabel">Ad Playlist</div>
+          <div id="ad-list"></div>
         </div>
       </div>
     </section>

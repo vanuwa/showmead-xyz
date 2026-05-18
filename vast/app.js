@@ -20,31 +20,133 @@ class VASTParser {
     this.maxWrapperDepth = maxWrapperDepth;
   }
 
+  // Public entry for URL fetching. Returns { ads: vastData[], rawXml: string }.
   async fetch(url, onProgress) {
-    const result = this._emptyVastData();
-    await this._fetchChain(url, result, 0, onProgress);
-    return result;
-  }
-
-  async _fetchChain(url, data, depth, onProgress) {
-    if (depth > this.maxWrapperDepth) {
-      throw new VASTError(303, `Wrapper chain exceeded ${this.maxWrapperDepth} hops`);
-    }
-    if (onProgress) onProgress(`Fetching${depth > 0 ? ` wrapper hop ${depth}/${this.maxWrapperDepth}` : ''}…`);
+    if (onProgress) onProgress('Fetching…');
 
     let xml;
+    let httpStatus;
     try {
       const res = await fetch(url);
+      httpStatus = res.status;
       if (!res.ok) throw new VASTError(403, `HTTP ${res.status} from ${url}`);
       xml = await res.text();
+      if (!xml.trim()) throw new VASTError('EMPTY', 'Empty response', { httpStatus });
     } catch (err) {
       if (err instanceof VASTError) throw err;
-      // network/CORS failure
       throw new VASTError('CORS', err.message, { url });
     }
 
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, 'text/xml');
+    if (doc.querySelector('parsererror')) throw new VASTError(100, 'VAST XML parse error');
+
+    const adEls = Array.from(doc.querySelectorAll('Ad'));
+
+    if (adEls.length <= 1) {
+      // Single-ad path: resolve full wrapper chain using pre-fetched XML.
+      const result = this._emptyVastData();
+      await this._fetchChain(url, result, 0, onProgress, xml);
+      return { ads: [result], rawXml: xml, httpStatus };
+    }
+
+    // Multi-ad path: resolve each ad independently.
+    const ads = [];
+    for (let i = 0; i < adEls.length; i++) {
+      const adEl = adEls[i];
+      const adData = this._emptyVastData();
+      adData.adId = adEl.getAttribute('id') || '';
+      adData.sequence = parseInt(adEl.getAttribute('sequence') || String(i + 1), 10);
+      adData.rawXmlChain.push(xml);
+
+      const inlineEl = adEl.querySelector('InLine');
+      const wrapperEl = adEl.querySelector('Wrapper');
+
+      if (inlineEl) {
+        const parsed = this._parseInline(inlineEl, doc);
+        const { adId, sequence, rawXmlChain, wrapperChain } = adData;
+        Object.assign(adData, parsed);
+        adData.adId = adId;
+        adData.sequence = sequence;
+        adData.rawXmlChain = rawXmlChain;
+        adData.wrapperChain = wrapperChain;
+      } else if (wrapperEl) {
+        const wrapperData = this._parseWrapper(wrapperEl, doc);
+        adData.wrapperChain.push({ url, adTitle: wrapperData.adTitle, adSystem: wrapperData.adSystem });
+        this._mergeTracking(adData, wrapperData);
+        adData.impressionUrls = wrapperData.impressionUrls;
+        adData.clickTrackingUrls = adData.clickTrackingUrls.concat(wrapperData.clickTrackingUrls);
+        adData.errorUrl = adData.errorUrl || wrapperData.errorUrl;
+
+        if (wrapperData.wrapperUrl) {
+          if (onProgress) onProgress(`Resolving ad ${i + 1} of ${adEls.length}…`);
+          await this._fetchChain(wrapperData.wrapperUrl, adData, 1, onProgress);
+        }
+      } else {
+        adData.adType = 'no-ad';
+      }
+
+      ads.push(adData);
+    }
+
+    return { ads, rawXml: xml, httpStatus };
+  }
+
+  // Public entry for raw XML paste. Returns { ads: vastData[], rawXml: string }.
+  parseXML(xmlString) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlString, 'text/xml');
+
+    if (doc.querySelector('parsererror')) throw new VASTError(100, 'VAST XML parse error');
+
+    const adEls = Array.from(doc.querySelectorAll('Ad'));
+
+    if (adEls.length === 0) {
+      return { ads: [{ ...this._emptyVastData(), adType: 'no-ad', rawXmlChain: [xmlString] }], rawXml: xmlString };
+    }
+
+    const ads = adEls.map((adEl, i) => {
+      const inlineEl = adEl.querySelector('InLine');
+      const wrapperEl = adEl.querySelector('Wrapper');
+      let ad;
+      if (inlineEl) ad = this._parseInline(inlineEl, doc);
+      else if (wrapperEl) ad = this._parseWrapper(wrapperEl, doc);
+      else ad = { ...this._emptyVastData(), adType: 'no-ad' };
+
+      ad.adId = adEl.getAttribute('id') || '';
+      ad.sequence = parseInt(adEl.getAttribute('sequence') || String(i + 1), 10);
+      ad.rawXmlChain = [xmlString];
+      return ad;
+    });
+
+    return { ads, rawXml: xmlString };
+  }
+
+  // Internal: resolves a single VAST URL chain into `data`. Accepts pre-fetched XML at depth 0.
+  async _fetchChain(url, data, depth, onProgress, prefetchedXml = null) {
+    if (depth > this.maxWrapperDepth) {
+      throw new VASTError(303, `Wrapper chain exceeded ${this.maxWrapperDepth} hops`);
+    }
+    if (onProgress && (prefetchedXml === null || depth > 0)) {
+      onProgress(`Fetching${depth > 0 ? ` wrapper hop ${depth}/${this.maxWrapperDepth}` : ''}…`);
+    }
+
+    let xml;
+    if (prefetchedXml !== null) {
+      xml = prefetchedXml;
+    } else {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new VASTError(403, `HTTP ${res.status} from ${url}`);
+        xml = await res.text();
+      } catch (err) {
+        if (err instanceof VASTError) throw err;
+        throw new VASTError('CORS', err.message, { url });
+      }
+    }
+
     data.rawXmlChain.push(xml);
-    const hop = this.parseXML(xml);
+    const hop = this._parseSingleAdXML(xml);
 
     if (hop.adType === 'no-ad') {
       data.adType = 'no-ad';
@@ -78,13 +180,12 @@ class VASTParser {
     }
   }
 
-  parseXML(xmlString) {
+  // Internal: parses a single-ad VAST XML string, returns one vastData object.
+  _parseSingleAdXML(xmlString) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlString, 'text/xml');
 
-    if (doc.querySelector('parsererror')) {
-      throw new VASTError(100, 'VAST XML parse error');
-    }
+    if (doc.querySelector('parsererror')) throw new VASTError(100, 'VAST XML parse error');
 
     const adEl = doc.querySelector('Ad');
     if (!adEl) return { ...this._emptyVastData(), adType: 'no-ad' };
@@ -298,7 +399,7 @@ class DiagramRenderer {
     this._eventIds = {};
   }
 
-  render(vastData, requestUrl) {
+  render(ads, requestUrl) {
     this._eventIds = {};
     let html = '';
 
@@ -307,38 +408,60 @@ class DiagramRenderer {
       : '';
     html += `VAST Request ${urlDisplay}\n`;
 
-    const chain = vastData.wrapperChain || [];
+    if (ads.length === 1) {
+      const ad = ads[0];
+      if (ad.adType === 'no-ad') {
+        html += `└─ <span class="diag-warn">No Ad</span>\n`;
+        this._container.innerHTML = html;
+        return;
+      }
+      html += this._renderAdBranch(ad, '', 0);
+    } else {
+      for (let adIdx = 0; adIdx < ads.length; adIdx++) {
+        const ad = ads[adIdx];
+        const isLastAd = adIdx === ads.length - 1;
+        const adConnector = isLastAd ? '└─' : '├─';
+        const adChildPrefix = isLastAd ? '   ' : '│  ';
+        const adLabel = ad.adTitle ? ` ${this._esc(ad.adTitle)}` : '';
+        html += `${adConnector} Ad #${adIdx + 1}:${adLabel}\n`;
+        html += this._renderAdBranch(ad, adChildPrefix, adIdx);
+      }
+    }
 
-    if (vastData.adType === 'no-ad') {
-      html += `└─ <span class="diag-warn">No Ad</span>\n`;
-      this._container.innerHTML = html;
-      return;
+    this._container.innerHTML = html;
+  }
+
+  _renderAdBranch(ad, prefix, adIndex) {
+    let html = '';
+    const chain = ad.wrapperChain || [];
+
+    if (ad.adType === 'no-ad') {
+      html += `${prefix}└─ <span class="diag-warn">No Ad</span>\n`;
+      return html;
     }
 
     for (let i = 0; i < chain.length - 1; i++) {
       const hop = chain[i];
-      const prefix = '   '.repeat(i);
-      const isLast = false;
-      html += `${prefix}${isLast ? '└─' : '└─'} <span class="diag-info">Wrapper</span>`;
+      const hopPrefix = prefix + '   '.repeat(i);
+      html += `${hopPrefix}└─ <span class="diag-info">Wrapper</span>`;
       if (hop.adTitle) html += `: ${this._esc(hop.adTitle)}`;
       html += ` <span class="diag-url">(hop ${i + 1}/${chain.length - 1})</span>\n`;
     }
 
     const depth = Math.max(0, chain.length - 1);
-    const indent = '   '.repeat(depth);
-    const lastHop = chain.length > 0 ? chain[chain.length - 1] : null;
+    const indent = prefix + '   '.repeat(depth);
 
     html += `${indent}└─ <span class="diag-info">InLine</span>`;
-    if (vastData.adTitle) html += `: ${this._esc(vastData.adTitle)}`;
+    if (ad.adTitle) html += `: ${this._esc(ad.adTitle)}`;
     html += '\n';
 
     const i2 = indent + '   ';
 
-    if (vastData.duration) {
-      html += `${i2}├─ Duration: <span class="diag-info">${this._esc(this._fmtDuration(vastData.duration))}</span>\n`;
+    if (ad.duration) {
+      html += `${i2}├─ Duration: <span class="diag-info">${this._esc(this._fmtDuration(ad.duration))}</span>\n`;
     }
 
-    const best = this._bestMediaFile(vastData.mediaFiles);
+    const best = this._bestMediaFile(ad.mediaFiles);
     if (best) {
       html += `${i2}├─ MediaFile: <span class="diag-info">${this._esc(best.type || 'unknown')}</span>`;
       if (best.width && best.height) html += ` ${best.width}×${best.height}`;
@@ -346,11 +469,11 @@ class DiagramRenderer {
       html += '\n';
     }
 
-    if (vastData.impressionUrls && vastData.impressionUrls.length) {
-      html += `${i2}├─ ${this._sq('impression')} Impression (${vastData.impressionUrls.length} URL${vastData.impressionUrls.length > 1 ? 's' : ''})\n`;
+    if (ad.impressionUrls && ad.impressionUrls.length) {
+      html += `${i2}├─ ${this._sq('impression', adIndex)} Impression (${ad.impressionUrls.length} URL${ad.impressionUrls.length > 1 ? 's' : ''})\n`;
     }
 
-    const trackingEvents = vastData.trackingEvents || {};
+    const trackingEvents = ad.trackingEvents || {};
     const knownEvents = ['creativeView','start','firstQuartile','midpoint','thirdQuartile','complete','pause','resume','mute','unmute','skip','close'];
     const presentEvents = knownEvents.filter(e => trackingEvents[e] && trackingEvents[e].length);
 
@@ -360,25 +483,25 @@ class DiagramRenderer {
       for (let idx = 0; idx < presentEvents.length; idx++) {
         const ev = presentEvents[idx];
         const isLast = idx === presentEvents.length - 1;
-        html += `${ei}${isLast ? '└─' : '├─'} ${this._sq(ev)} ${ev}\n`;
+        html += `${ei}${isLast ? '└─' : '├─'} ${this._sq(ev, adIndex)} ${ev}\n`;
       }
     }
 
-    if (vastData.clickThrough) {
-      html += `${i2}├─ Click → <span class="diag-url">${this._esc(this._trunc(vastData.clickThrough, 40))}</span>\n`;
+    if (ad.clickThrough) {
+      html += `${i2}├─ ${this._sq('click', adIndex)} Click → <span class="diag-url">${this._esc(this._trunc(ad.clickThrough, 40))}</span>\n`;
     }
 
-    if (vastData.errorUrl) {
-      html += `${i2}└─ ${this._sq('errorUrl')} Error URL\n`;
+    if (ad.errorUrl) {
+      html += `${i2}└─ ${this._sq('errorUrl', adIndex)} Error URL\n`;
     } else {
       html += `${i2}└─ (no error URL)\n`;
     }
 
-    this._container.innerHTML = html;
+    return html;
   }
 
-  updateEvent(eventName, state) {
-    const id = 'diag-sq-' + eventName;
+  updateEvent(eventName, state, adIndex = 0) {
+    const id = `diag-sq-${adIndex}-${eventName}`;
     const el = document.getElementById(id);
     if (!el) return;
     el.className = `diag-square diag-node--${state}`;
@@ -389,8 +512,8 @@ class DiagramRenderer {
     this._container.innerHTML = '';
   }
 
-  _sq(eventName) {
-    const id = 'diag-sq-' + eventName;
+  _sq(eventName, adIndex = 0) {
+    const id = `diag-sq-${adIndex}-${eventName}`;
     return `<span class="diag-square diag-node--pending" id="${id}">■</span>`;
   }
 
@@ -434,7 +557,7 @@ class DiagramRenderer {
 // AdPlayer
 // ─────────────────────────────────────────────
 class AdPlayer {
-  constructor(videoEl, audioEl, bannerEl, overlayEl, skipBtnEl, metaEl, placeholderEl, vastData, logger, diagram) {
+  constructor(videoEl, audioEl, bannerEl, overlayEl, skipBtnEl, metaEl, placeholderEl, vastData, logger, diagram, adIndex = 0, onComplete = null) {
     this._video = videoEl;
     this._audio = audioEl;
     this._banner = bannerEl;
@@ -445,6 +568,8 @@ class AdPlayer {
     this._vastData = vastData;
     this._logger = logger;
     this._diagram = diagram;
+    this._adIndex = adIndex;
+    this._onComplete = onComplete;
 
     this._started = false;
     this._wasMuted = false;
@@ -486,7 +611,6 @@ class AdPlayer {
     } else {
       this._video.style.display = 'block';
       this._placeholder.style.display = 'none';
-      // Overlay captures clicks on video content but must not cover native controls (bottom ~44px)
       this._overlay.style.bottom = '44px';
       this._overlay.style.pointerEvents = 'auto';
     }
@@ -533,7 +657,7 @@ class AdPlayer {
     }
 
     this._logger.log('banner-displayed', '', 'vast-loaded');
-    this._firePixels(this._vastData.impressionUrls, 'impression');
+    this._fireImpression();
   }
 
   _selectMediaFile(files) {
@@ -555,7 +679,7 @@ class AdPlayer {
       if (!this._started) {
         this._started = true;
         this._wasMuted = el.muted;
-        this._firePixels(this._vastData.impressionUrls, 'impression');
+        this._fireImpression();
         this._fireTracking('start', 'start');
         this._fireTracking('creativeView', 'creativeView');
       } else {
@@ -573,6 +697,7 @@ class AdPlayer {
       if (!this._completeFired) {
         this._completeFired = true;
         this._fireTracking('complete', 'complete');
+        if (this._onComplete) this._onComplete();
       }
     });
 
@@ -618,13 +743,14 @@ class AdPlayer {
     on('error', () => {
       const code = el.error ? el.error.code : 0;
       this._logger.log('media-error', `MediaError code ${code}`, 'error');
-      this._diagram.updateEvent('errorUrl', 'error');
+      this._diagram.updateEvent('errorUrl', 'error', this._adIndex);
       this._fireErrorUrl(405);
     });
 
     const overlayClick = () => {
       this._firePixels(this._vastData.clickTrackingUrls, 'click');
       this._logger.log('click', this._vastData.clickThrough || '', 'click');
+      this._diagram.updateEvent('click', 'fired', this._adIndex);
       if (this._vastData.clickThrough) window.open(this._vastData.clickThrough, '_blank');
     };
     this._overlay.addEventListener('click', overlayClick);
@@ -643,11 +769,17 @@ class AdPlayer {
     }
   }
 
+  _fireImpression() {
+    this._firePixels(this._vastData.impressionUrls, 'impression');
+    this._logger.log('impression', this._vastData.impressionUrls.length ? this._vastData.impressionUrls[0] : '', 'impression');
+    this._diagram.updateEvent('impression', 'fired', this._adIndex);
+  }
+
   _fireTracking(eventName, logType) {
     const urls = (this._vastData.trackingEvents || {})[eventName] || [];
     this._firePixels(urls, eventName);
     this._logger.log(eventName, urls.length ? urls[0] : '', logType || eventName);
-    this._diagram.updateEvent(eventName, 'fired');
+    this._diagram.updateEvent(eventName, 'fired', this._adIndex);
   }
 
   _firePixels(urls, eventName) {
@@ -664,7 +796,7 @@ class AdPlayer {
     const img = new Image();
     img.src = url;
     this._logger.log('error-fired', url, 'error');
-    this._diagram.updateEvent('errorUrl', 'error');
+    this._diagram.updateEvent('errorUrl', 'error', this._adIndex);
   }
 
   _parseDuration(str) {
@@ -733,11 +865,23 @@ class VastTester {
     this._placeholder = document.getElementById('player-placeholder');
     this._diagramPre  = document.getElementById('diagram-tree');
     this._logList     = document.getElementById('event-log');
+    this._adListSection = document.getElementById('ad-list-section');
+    this._adListEl    = document.getElementById('ad-list');
+
+    this._httpStatusBadge = document.getElementById('http-status-badge');
+    this._xmlToggleBtn    = document.getElementById('xml-toggle-btn');
 
     this._parser  = new VASTParser({ maxWrapperDepth: 5 });
     this._logger  = new EventLogger(this._logList);
     this._diagram = new DiagramRenderer(this._diagramPre);
     this._player  = null;
+
+    // Multi-ad state
+    this._ads            = [];
+    this._currentAdIndex = null;
+    this._adPlayedSet    = new Set();
+    this._lastRequestUrl = null;
+    this._lastHttpStatus = null;
 
     this._playerStage     = document.getElementById('player-stage');
     this._playerContainer = document.getElementById('player-container');
@@ -757,6 +901,10 @@ class VastTester {
     this._clearLogBtn.addEventListener('click', () => this._logger.clear());
     this._copyXmlBtn.addEventListener('click', () => {
       navigator.clipboard.writeText(this._rawXml.textContent).catch(() => {});
+    });
+    this._xmlToggleBtn.addEventListener('click', () => {
+      const collapsed = this._xmlDetails.classList.toggle('collapsed');
+      this._xmlToggleBtn.textContent = collapsed ? '▶' : '▼';
     });
     this._orientBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -791,7 +939,6 @@ class VastTester {
       this._onLoad();
       return;
     }
-    // fallback: sessionStorage for the fetched XML (read-only display)
     const cached = sessionStorage.getItem('vastRawXml');
     if (cached) {
       this._rawXml.textContent = cached;
@@ -810,79 +957,220 @@ class VastTester {
       return;
     }
 
-    // update URL bar for shareability (silent no-op on file:// where replaceState is blocked)
     try {
       const params = new URLSearchParams(location.search);
       params.set('tag', input);
       history.replaceState(null, '', '?' + params.toString());
     } catch (_) {}
 
+    this._clearAdList();
     this._destroyPlayer();
     this._logger.clear();
     this._diagram.clear();
     this._rawXml.textContent = '';
     this._xmlHopLabel.textContent = '';
     this._setStatus('', 'loading');
+    this._ads = [];
+    this._currentAdIndex = null;
+    this._adPlayedSet = new Set();
+    this._lastRequestUrl = isUrl ? input : null;
+    this._lastHttpStatus = null;
+    if (this._httpStatusBadge) this._httpStatusBadge.hidden = true;
 
     try {
-      let vastData;
+      let result;
 
       if (isXml) {
         this._setStatus('Parsing XML…', 'loading');
-        vastData = this._parser.parseXML(input);
-        vastData.rawXmlChain = [input];
+        result = this._parser.parseXML(input);
       } else {
-        vastData = await this._parser.fetch(input, msg => this._setStatus(msg, 'loading'));
+        result = await this._parser.fetch(input, msg => this._setStatus(msg, 'loading'));
       }
 
-      // populate raw XML panel
-      const combinedXml = vastData.rawXmlChain.join('\n\n<!-- ═══ WRAPPER HOP ═══ -->\n\n');
-      this._rawXml.textContent = combinedXml;
-      sessionStorage.setItem('vastRawXml', combinedXml);
+      const { ads, rawXml } = result;
+      this._ads = ads;
+      this._lastHttpStatus = result.httpStatus ?? null;
 
-      if (vastData.rawXmlChain.length > 1) {
-        this._xmlHopLabel.textContent = `(${vastData.rawXmlChain.length} hops)`;
-      }
+      if (result.httpStatus) this._setHttpStatus(result.httpStatus);
 
-      if (vastData.adType === 'no-ad') {
+      // Show initial XML; _updateRawXmlPanel will refine per-ad on selection
+      this._rawXml.textContent = rawXml;
+      sessionStorage.setItem('vastRawXml', rawXml);
+
+      this._diagram.render(this._ads, this._lastRequestUrl);
+
+      if (ads.length === 1 && ads[0].adType === 'no-ad') {
         this._setStatus('No Ad response', 'info');
         this._logger.log('no-ad', '', 'no-ad');
-        this._diagram.render(vastData, isUrl ? input : null);
+        this._renderAdList(ads);
         return;
       }
 
-      this._diagram.render(vastData, isUrl ? input : null);
+      this._renderAdList(ads);
 
-      if (vastData.wrapperChain.length > 1) {
-        this._logger.log('wrapper-chain', `${vastData.wrapperChain.length - 1} wrapper hop(s)`, 'wrapper');
-      }
-
-      this._player = new AdPlayer(
-        this._video, this._audio, this._banner,
-        this._overlay, this._skipBtn, this._meta, this._placeholder,
-        vastData, this._logger, this._diagram
-      );
-      this._player.load();
-
-      const title = vastData.adTitle || 'Ad';
-      document.title = `VAST Tester — ${title}`;
-      this._setStatus(`Loaded: ${title}`, 'success');
-      this._logger.log('vast-loaded', title, 'vast-loaded');
+      this._playAd(0);
 
     } catch (err) {
       let msg = err.message || 'Unknown error';
       if (err.code === 'CORS') {
         msg = 'Fetch failed (possibly CORS). Check the console for details.';
+      } else if (err.code === 'EMPTY') {
+        msg = `Empty response${err.context?.httpStatus ? ` (HTTP ${err.context.httpStatus})` : ''}`;
       } else if (err.code === 100) {
         msg = 'XML parse error — invalid VAST response';
       } else if (err.code === 303) {
         msg = 'Wrapper chain limit reached (5 hops)';
       }
+      if (err.context?.httpStatus) this._setHttpStatus(err.context.httpStatus);
       this._setStatus(msg, 'error');
       this._logger.log('error', msg, 'error');
       this._diagram.updateEvent('errorUrl', 'error');
       console.error('[VASTTester]', err);
     }
+  }
+
+  // Auto-advance sequential playback: fires onComplete → plays next ad.
+  _playAd(index) {
+    this._destroyPlayer();
+    this._currentAdIndex = index;
+    this._updateAdListItems();
+
+    const vastData = this._ads[index];
+    this._updateRawXmlPanel(vastData);
+
+    if (vastData.adType === 'no-ad') {
+      this._setStatus('No Ad', 'info');
+      return;
+    }
+
+    if (vastData.wrapperChain && vastData.wrapperChain.length > 1) {
+      this._logger.log('wrapper-chain', `${vastData.wrapperChain.length - 1} wrapper hop(s)`, 'wrapper');
+    }
+
+    const nextIndex = index + 1 < this._ads.length ? index + 1 : null;
+
+    this._player = new AdPlayer(
+      this._video, this._audio, this._banner,
+      this._overlay, this._skipBtn, this._meta, this._placeholder,
+      vastData, this._logger, this._diagram, index,
+      () => {
+        this._adPlayedSet.add(index);
+        this._updateAdListItems();
+        if (nextIndex !== null) {
+          this._playAd(nextIndex);
+        }
+      }
+    );
+    this._player.load();
+
+    const title = vastData.adTitle || `Ad ${index + 1}`;
+    document.title = `VAST Tester — ${title}`;
+    const statusMsg = this._ads.length > 1
+      ? `Ad ${index + 1}/${this._ads.length}: ${title}`
+      : `Loaded: ${title}`;
+    this._setStatus(statusMsg, 'success');
+    this._logger.log('vast-loaded', title, 'vast-loaded');
+  }
+
+  // Preview: user manually selects an ad; no auto-advance after completion.
+  _previewAd(index) {
+    this._destroyPlayer();
+    this._currentAdIndex = index;
+    this._updateAdListItems();
+
+    const vastData = this._ads[index];
+    this._updateRawXmlPanel(vastData);
+
+    if (vastData.adType === 'no-ad') {
+      this._setStatus('No Ad', 'info');
+      return;
+    }
+
+    this._player = new AdPlayer(
+      this._video, this._audio, this._banner,
+      this._overlay, this._skipBtn, this._meta, this._placeholder,
+      vastData, this._logger, this._diagram, index,
+      () => {
+        this._adPlayedSet.add(index);
+        this._updateAdListItems();
+      }
+    );
+    this._player.load();
+
+    const title = vastData.adTitle || `Ad ${index + 1}`;
+    document.title = `VAST Tester — ${title}`;
+    this._setStatus(`Preview — Ad ${index + 1}/${this._ads.length}: ${title}`, 'success');
+    this._logger.log('vast-loaded', `preview: ${title}`, 'vast-loaded');
+  }
+
+  _updateRawXmlPanel(vastData) {
+    const chains = vastData.rawXmlChain || [];
+    const combined = chains.join('\n\n<!-- ═══ WRAPPER HOP ═══ -->\n\n');
+    if (combined) {
+      this._rawXml.textContent = combined;
+      sessionStorage.setItem('vastRawXml', combined);
+    }
+
+    const hopCount = chains.length - 1;
+    let label = '';
+    if (this._ads.length > 1 && hopCount > 0) {
+      label = `(${this._ads.length} ads, ${hopCount} hop${hopCount !== 1 ? 's' : ''})`;
+    } else if (this._ads.length > 1) {
+      label = `(${this._ads.length} ads)`;
+    } else if (hopCount > 0) {
+      label = `(${hopCount} hop${hopCount !== 1 ? 's' : ''})`;
+    }
+    this._xmlHopLabel.textContent = label;
+  }
+
+  _renderAdList(ads) {
+    if (!this._adListSection || !ads || !ads.length) return;
+    this._adListSection.hidden = false;
+    this._adListEl.innerHTML = '';
+
+    ads.forEach((ad, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'ad-list-item';
+      btn.dataset.index = String(i);
+
+      const seq = ad.sequence || (i + 1);
+      const typeStr = ad.adType || 'unknown';
+      const title = ad.adTitle || ad.adId || `Ad ${seq}`;
+
+      const seqEl = document.createElement('span');
+      seqEl.className = 'ad-seq';
+      seqEl.textContent = `#${seq}`;
+
+      const badge = document.createElement('span');
+      badge.className = `ad-type-badge ${typeStr}`;
+      badge.textContent = typeStr.toUpperCase();
+
+      const titleEl = document.createElement('span');
+      titleEl.className = 'ad-title';
+      titleEl.textContent = title;
+      titleEl.title = title;
+
+      const dot = document.createElement('span');
+      dot.className = 'ad-played-dot';
+      dot.title = 'Played';
+
+      btn.append(seqEl, badge, titleEl, dot);
+      btn.addEventListener('click', () => this._previewAd(i));
+      this._adListEl.appendChild(btn);
+    });
+  }
+
+  _updateAdListItems() {
+    if (!this._adListEl) return;
+    this._adListEl.querySelectorAll('.ad-list-item').forEach((item, i) => {
+      item.classList.toggle('active', i === this._currentAdIndex);
+      item.classList.toggle('played', this._adPlayedSet.has(i));
+    });
+  }
+
+  _clearAdList() {
+    if (this._adListSection) this._adListSection.hidden = true;
+    if (this._adListEl) this._adListEl.innerHTML = '';
   }
 
   _setStatus(msg, type = 'info') {
@@ -897,8 +1185,21 @@ class VastTester {
     }
   }
 
+  _setHttpStatus(code) {
+    if (!code || !this._httpStatusBadge) return;
+    const ok = code >= 200 && code < 300;
+    this._httpStatusBadge.textContent = `HTTP ${code}`;
+    this._httpStatusBadge.className = ok ? 'ok' : 'error';
+    this._httpStatusBadge.hidden = false;
+  }
+
   _destroyPlayer() {
     if (this._player) {
+      // Mark as played if playback was started before switching away
+      if (this._player._started && this._currentAdIndex !== null) {
+        this._adPlayedSet.add(this._currentAdIndex);
+        this._updateAdListItems();
+      }
       this._player.destroy();
       this._player = null;
     }
